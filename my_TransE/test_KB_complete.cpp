@@ -34,6 +34,7 @@ map<int, string> id2entity, id2relation;
 int entity_num, relation_num;
 
 vector<vector<double> > entity_vec, relation_vec;
+map<pair<int, int>, int> in_KB;
 
 char buf[100000];
 int L1_flag = 1;
@@ -43,6 +44,50 @@ string version;
 double sqr(double x)
 {
     return x*x;
+}
+
+/*************************************************
+Function: load_KB()
+Description: load KB data from file
+Input:
+Output:
+Return:
+Others:
+*************************************************/
+void load_KB()
+{
+    FILE *KB_file = fopen("../data/train.txt","r");
+    
+    const char * split = "\t";
+    char * p;
+	while(!feof(KB_file))
+    {
+        fgets(buf, sizeof(buf), KB_file); 
+        
+        p = strtok(buf, split);
+        string h = p;
+        p = strtok(NULL, split);
+        if (p==NULL)
+            continue;
+        string t = p;
+        //cout << t << endl;
+        p = strtok(NULL, split);
+        string r = p;
+        //r = r.replace('\n', '');
+        //cout << r.length() <<endl;
+        r = r.substr(0, r.length()-1);
+
+        if (entity2id.count(h)==0)
+            cout << "no entity: " << h << endl;
+        if (entity2id.count(t)==0)
+            cout << "no entity: " << t << endl;
+
+        if (relation2id.count(r)==0)
+            cout << "no relation: " << t << endl;
+
+        in_KB[make_pair(entity2id[h], entity2id[t])] = 1;
+    }
+    fclose(KB_file);
 }
 
 /*************************************************
@@ -104,8 +149,8 @@ void load_entity_relation_data()
 
 void load_entity_relation_vec()
 {
-    FILE *relation_vec_file = fopen(("./vec_2/relation2vec."+version).c_str(), "r");
-    FILE *entity_vec_file = fopen(("./vec_2/entity2vec."+version).c_str(), "r");
+    FILE *relation_vec_file = fopen(("./model/model_e2/relation2vec."+version).c_str(), "r");
+    FILE *entity_vec_file = fopen(("./model/model_e2/entity2vec."+version).c_str(), "r");
 
     relation_vec.resize(relation_num);
     for (int i=0; i<relation_num;i++)
@@ -154,14 +199,14 @@ Output:
 Return: the ranked_link_map
 Others:
 *************************************************/
-map<int, double> link_prediction(int entity1_id, int entity2_id)
+map<int, double> link_prediction(int entity1_id, int entity2_id, double threshold, int num)
 {
     map<int, double> ranked_link_map;
     double min = 10000000;
     int r_id = -1;
     double distance;
     
-    for(int j = 0; j < 10; j++)
+    for(int j = 0; j < num; j++)
     {
         for(int i = 0; i < relation_num; i++)
         {
@@ -174,6 +219,8 @@ map<int, double> link_prediction(int entity1_id, int entity2_id)
                 r_id = i;
             }
         }
+        if (min >= threshold)
+            break;
         ranked_link_map[r_id] = min;
         min = 10000000;        
     }
@@ -181,14 +228,24 @@ map<int, double> link_prediction(int entity1_id, int entity2_id)
     return ranked_link_map;
 }
 
-map<int, double> entity_prediction(int entity1_id, int r_id)
+/*************************************************
+Function: entity_prediction()
+Description: predict the ranked_link_list for given entitys
+Input:
+    entity1_id: int
+    r_id: int
+Output:
+Return: the ranked_entity_map
+Others:
+*************************************************/
+map<int, double> entity_prediction(int entity1_id, int r_id, int num)
 {
     map<int, double> ranked_entity_map;
     double min = 10000000;
     int entity2_id = -1;
     double distance;
     
-    for(int j = 0; j < 10; j++)
+    for(int j = 0; j < num; j++)
     {
         for(int i = 0; i < entity_num; i++)
         {
@@ -206,6 +263,53 @@ map<int, double> entity_prediction(int entity1_id, int r_id)
     }
     
     return ranked_entity_map;
+}
+
+/*************************************************
+Function: find_new_triple()
+Description: due to the given KB and it's vector representation find new triple
+Input:
+    double threshold: the threshold of score for predictation
+Output:
+Return: 
+Others:
+*************************************************/
+void find_new_triple()
+{
+    map<int, double> ranked_map;
+    vector<PAIR> result_score_vec;
+    ofstream new_KB_file;
+    new_KB_file.open("KB_new.txt");
+    
+    for (int i = 0; i < entity_num; i++)
+    {
+        int count = 0;
+        for (int j = 0; j < entity_num; j++)
+        {
+            if (in_KB.count(make_pair(i, j)) != 0 || i==j)
+                continue;
+            result_score_vec.clear();
+            ranked_map = link_prediction(i, j, 0.5, 10);
+            if (ranked_map.size()!=0)
+            {
+                for (map<int, double>::iterator it=ranked_map.begin(); it!=ranked_map.end(); ++it) {  
+                    result_score_vec.push_back(make_pair(it->first, it->second));  
+                }  
+                sort(result_score_vec.begin(), result_score_vec.end(), CmpByValue());  
+                new_KB_file << id2entity[i] << "==>" << id2entity[j];            
+                for (vector<PAIR>::iterator it=result_score_vec.begin(); it!=result_score_vec.end(); ++it) {  
+                    new_KB_file << "####" << id2relation[it->first] << ":" << it->second;  
+                }
+                new_KB_file << endl;
+                new_KB_file.flush();
+                count ++;
+                if (count % 10 == 0)
+                {
+                    cout << id2entity[i] << ": " << "find " << count << endl;
+                }
+            }
+        }
+    }
 }
 
 /*************************************************
@@ -278,38 +382,7 @@ int main(int argc, char **argv)
     load_entity_relation_vec();
     cout << "load ok." << endl;
     
-    ifstream entity_pair_file;
-    entity_pair_file.open("./data_for_predict/entity_pair.txt");
-    
-    map<int, double> ranked_map;
-    vector<PAIR> result_score_vec;
-    
-    string entity1, entity2;
-    int entity1_id, entity2_id;
-    while(!entity_pair_file.eof())
-    {
-        result_score_vec.clear();
-        entity_pair_file >> entity1 >> entity2;
-        if (entity2id.count(entity1)==0)
-        {
-            cout << "no entity in KB: " << entity1 << endl;
-            break;
-        }
-        if (entity2id.count(entity2)==0)
-        {
-            cout << "no entity in KB: " << entity2 << endl;
-            break;
-        }
-        cout << "=========================\n";
-        cout << entity1 << "\t" << entity2 << endl;
-        ranked_map = link_prediction(entity2id[entity1], entity2id[entity2]);
-        for (map<int, double>::iterator it=ranked_map.begin(); it!=ranked_map.end(); ++it) {  
-            result_score_vec.push_back(make_pair(it->first, it->second));  
-        }  
-        sort(result_score_vec.begin(), result_score_vec.end(), CmpByValue());   
-        for (vector<PAIR>::iterator it=result_score_vec.begin(); it!=result_score_vec.end(); ++it) {  
-            cout << id2relation[it->first] << " => " << it->second << '\n';  
-        }
-    }
+    find_new_triple();
+
     return 0;
 }

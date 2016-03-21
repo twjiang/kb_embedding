@@ -104,8 +104,8 @@ void load_entity_relation_data()
 
 void load_entity_relation_vec()
 {
-    FILE *relation_vec_file = fopen(("./vec_2/relation2vec."+version).c_str(), "r");
-    FILE *entity_vec_file = fopen(("./vec_2/entity2vec."+version).c_str(), "r");
+    FILE *relation_vec_file = fopen(("./model/model_e2/relation2vec."+version).c_str(), "r");
+    FILE *entity_vec_file = fopen(("./model/model_e2/entity2vec."+version).c_str(), "r");
 
     relation_vec.resize(relation_num);
     for (int i=0; i<relation_num;i++)

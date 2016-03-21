@@ -5,6 +5,7 @@ Description: the Test for kb_embedding program
 **************************************************/
 
 #include <iostream>
+#include <fstream>
 #include <map>
 #include <vector>
 #include <string>
@@ -71,7 +72,7 @@ void load_train_data()
             cout << "no entity: " << t << endl;
 
         if (relation2id.count(r)==0)
-            cout << "no relation: " << t << endl;
+            cout << "no relation: " << r << endl;
 
         is_good_triple[make_pair(entity2id[h], relation2id[r])][entity2id[t]] = 1;
     }
@@ -231,8 +232,8 @@ void load_entity_relation_data()
 
 void load_entity_relation_vec()
 {
-    FILE *relation_vec_file = fopen(("./vec_1/relation2vec."+version).c_str(), "r");
-    FILE *entity_vec_file = fopen(("./vec_1/entity2vec."+version).c_str(), "r");
+    FILE *relation_vec_file = fopen(("./model/model_e2/relation2vec."+version).c_str(), "r");
+    FILE *entity_vec_file = fopen(("./model/model_e2/entity2vec."+version).c_str(), "r");
 
     relation_vec.resize(relation_num);
     for (int i=0; i<relation_num;i++)
@@ -282,7 +283,6 @@ Others:
 *************************************************/
 void link_prediction()
 {
-    FILE *evaluation_file = fopen("../data/link_prediction.eval", "w");
     int h_id, r_id, t_id, before_count, neg_count, rank1;
     double pos_distance, neg_distance;
     int mean_rank;
@@ -290,6 +290,9 @@ void link_prediction()
     int rank_count = 0;
     int hit_10_count = 0;
     int rank_sum = 0;
+    
+    ofstream bad_rank_triple_file;
+    bad_rank_triple_file.open("bad_rank_triple.txt",ios::app);
 
     cout << "rank1\t" << "mean_rank\t" << "hit_10" << endl;
     for (int i = 0; i < triple_h.size(); i++)
@@ -298,6 +301,9 @@ void link_prediction()
         r_id = triple_r[i];
         t_id = triple_t[i];
         pos_distance = calc_distance(h_id, r_id, t_id);
+        //cout << id2entity[h_id] << "," << id2relation[r_id] << "," << id2entity[t_id] << endl;
+        //cout << h_id << "," << r_id << "," << t_id << endl;
+        //cout << i << endl;
 
         before_count = 0;
         neg_count = 0;
@@ -315,6 +321,7 @@ void link_prediction()
                     before_count++;
             }
         }
+        //cout << "--" << endl;
         rank_count++;
         rank1 = before_count + 1;
         rank_sum += rank1;
@@ -325,7 +332,10 @@ void link_prediction()
         mean_rank = rank_sum / rank_count;
         hit_10 = ((double)hit_10_count / rank_count)*100;
         cout << rank1 << "\t" << mean_rank << "\t" << hit_10 << "%" << endl;
-        fprintf(evaluation_file, "%d\t%d\t%.2lf%%\n", rank1, mean_rank, hit_10);
+        if (rank1 > 10){
+            bad_rank_triple_file << id2entity[h_id] << "\t" << id2entity[t_id] << "\t" <<id2relation[r_id] << "\t" << rank1 << endl;
+            bad_rank_triple_file.flush();
+        }
 
         before_count = 0;
         neg_count = 0;
@@ -352,9 +362,12 @@ void link_prediction()
         mean_rank = rank_sum / rank_count;
         hit_10 = ((double)hit_10_count / rank_count)*100;
         cout << rank1 << "\t" << mean_rank << "\t" << hit_10 << "%" << endl;
-        fprintf(evaluation_file, "%d\t%d\t%.2lf%%\n", rank1, mean_rank, hit_10);
+        if (rank1 > 10){
+            bad_rank_triple_file << id2entity[h_id] << "\t" << id2entity[t_id] << "\t" <<id2relation[r_id] << "\t" << rank1 << endl;
+            bad_rank_triple_file.flush();
+        }
     }
-    fclose(evaluation_file);
+    bad_rank_triple_file.close();
 }
 
 /*************************************************
