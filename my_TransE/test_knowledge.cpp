@@ -59,12 +59,9 @@ void load_train_data()
         if (p==NULL)
             continue;
         string t = p;
-        //cout << t << endl;
         p = strtok(NULL, split);
         string r = p;
-        //r = r.replace('\n', '');
-        //cout << r.length() <<endl;
-        r = r.substr(0, r.length()-1);
+        r = r.substr(0, r.length()-1); // minus 1 for Windows, minus 2 for Unix
 
         if (entity2id.count(h)==0)
             cout << "no entity: " << h << endl;
@@ -103,12 +100,9 @@ void load_valid_data()
         if (p==NULL)
             continue;
         string t = p;
-        //cout << t << endl;
         p = strtok(NULL, split);
         string r = p;
-        //r = r.replace('\n', '');
-        //cout << r.length() <<endl;
-        r = r.substr(0, r.length()-1);
+        r = r.substr(0, r.length()-1);// minus 1 for Windows, minus 2 for Unix
 
         if (entity2id.count(h)==0)
             cout << "no entity: " << h << endl;
@@ -147,12 +141,9 @@ void load_test_data()
         if (p==NULL)
             continue;
         string t = p;
-        //cout << t << endl;
         p = strtok(NULL, split);
         string r = p;
-        //r = r.replace('\n', '');
-        //cout << r.length() <<endl;
-        r = r.substr(0, r.length()-1);
+        r = r.substr(0, r.length()-1);// minus 1 for Windows, minus 2 for Unix
 
         if (entity2id.count(h)==0)
             cout << "no entity: " << h << endl;
@@ -301,9 +292,6 @@ void link_prediction()
         r_id = triple_r[i];
         t_id = triple_t[i];
         pos_distance = calc_distance(h_id, r_id, t_id);
-        //cout << id2entity[h_id] << "," << id2relation[r_id] << "," << id2entity[t_id] << endl;
-        //cout << h_id << "," << r_id << "," << t_id << endl;
-        //cout << i << endl;
 
         before_count = 0;
         neg_count = 0;
@@ -434,13 +422,7 @@ int main(int argc, char **argv)
     else
         cout << "use L2 to calculate distance." << endl;
 
-    //cout << "load entity and relation data ... ..." << endl;
     load_entity_relation_data();
-    //cout << "load train triple data ... ..." << endl;
-    //load_train_data();
-    //cout << "load valid triple data ... ..." << endl;
-    //load_valid_data();
-    //cout << "load test triple data ... ..." << endl;
     load_test_data();
 
     cout << "load entity and relation embedding data ... ..." << endl;
